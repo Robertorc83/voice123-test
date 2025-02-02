@@ -1,194 +1,44 @@
 "use client";
 
-import { useState, KeyboardEvent } from "react";
+import { useEffect, useState, KeyboardEvent } from "react";
 import Container from "@mui/material/Container";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
+import ResultsList from "@/features/ResultsList";
+import useFetchProviders from "@/hooks/useFetchProviders";
+import { useRouter, useSearchParams } from "next/navigation";
+import Pagination from "@mui/material/Pagination";
+import SearchBar from "@/features/SearchBar"; // New import for SearchBar
 
-interface Provider {
-  headline?: string; 
-  user: {
-    username: string;
-    name: string;
-    picture_medium?: string;
-  };
-  relevant_sample?: {
-    file?: string;
-  };
-}
+import Lottie from "lottie-react";
+import microphoneAnimation from "../../public/animations/microphone.json";
+import errorAnimation from "../../public/animations/error.json";
 
-function Highlight({ text, query }: { text: string; query: string }) {
-  if (!query) return <span>{text}</span>;
+export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const regex = new RegExp(`(${query})`, "gi");
-  const parts = text.split(regex);
+  const initialQuery = searchParams.get("keywords") || "";
+  const initialPage = parseInt(searchParams.get("page") || "1", 10);
 
-  return (
-    <>
-      {parts.map((part, i) =>
-        regex.test(part) ? (
-          <mark key={i} data-testid="highlight" style={{ backgroundColor: "yellow" }}>
-            {part}
-          </mark>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </>
-  );
-}
+  const [query, setQuery] = useState<string>(initialQuery);
+  const [activeQuery, setActiveQuery] = useState<string>(initialQuery);
+  const [page, setPage] = useState<number>(initialPage);
 
-function AudioPlayer({ src }: { src: string }) {
-  return (
-    <Box sx={{ mt: 2 }}>
-      <audio data-testid="audio-player" controls style={{ width: "100%" }}>
-        <source src={src} type="audio/mpeg" />
-        {/* fallback text */}
-        Your browser does not support the audio element.
-      </audio>
-    </Box>
-  );
-}
+  const { providers, loading, error, search, totalPages } = useFetchProviders();
 
-function Paginator({
-  currentPage,
-  onPageChange,
-  totalPages,
-}: {
-  currentPage: number;
-  onPageChange: (p: number) => void;
-  totalPages: number;
-}) {
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-
-  return (
-    <Box sx={{ display: "flex", gap: 1 }}>
-      {/* Prev button */}
-      <Button
-        variant="outlined"
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage <= 1}
-      >
-        Prev
-      </Button>
-
-      {/* Page number buttons */}
-      {pages.map((pageNum) => (
-        <Button
-          key={pageNum}
-          variant={pageNum === currentPage ? "contained" : "outlined"}
-          onClick={() => onPageChange(pageNum)}
-        >
-          {pageNum}
-        </Button>
-      ))}
-
-      {/* Next button */}
-      <Button
-        variant="outlined"
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage >= totalPages}
-      >
-        Next
-      </Button>
-    </Box>
-  );
-}
-
-function ResultsList({
-  providers,
-  query,
-}: {
-  providers: Provider[];
-  query: string;
-}) {
-  return (
-    <Box data-testid="results-list">
-      {providers.map((provider, idx) => {
-        const { user, headline, relevant_sample } = provider;
-        const textToHighlight = headline ?? "";
-        const audioFile = relevant_sample?.file ?? "";
-
-        return (
-          <Box key={`${user.username}-${idx}`} sx={{ mb: 3 }}>
-            {/* Actor Name as a link */}
-            <Typography variant="h6">
-              <a
-                href={`https://voice123.com/${user.username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {user.name}
-              </a>
-            </Typography>
-
-            {/* Picture if available */}
-            {user.picture_medium && (
-              <Box
-                component="img"
-                src={user.picture_medium}
-                alt={user.name}
-                width="100px"
-              />
-            )}
-
-            {/* Highlight text */}
-            <Box>
-              <Highlight text={textToHighlight} query={query} />
-            </Box>
-
-            {/* Audio player */}
-            {audioFile && <AudioPlayer src={audioFile} />}
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
-
-export default function HomePage() {
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchProviders = async (searchText: string, pageNum: number) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const url = `https://api.sandbox.voice123.com/providers/search/?service=voice_over&keywords=${encodeURIComponent(
-        searchText
-      )}&page=${pageNum}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error("Error fetching data");
-      }
-      const totalPagesFromHeader = response.headers.get("x-list-total-pages");
-      setTotalPages(totalPagesFromHeader ? parseInt(totalPagesFromHeader, 10) : 1);
-
-      const data = await response.json();
-      setProviders(data.providers || []);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred");
-      }
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (initialQuery) {
+      setActiveQuery(initialQuery);
+      search(initialQuery, initialPage);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = () => {
     setPage(1);
-    fetchProviders(query, 1);
+    setActiveQuery(query);
+    router.push(`?keywords=${encodeURIComponent(query)}&page=1`);
+    search(query, 1);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -197,9 +47,10 @@ export default function HomePage() {
     }
   };
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = (event: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
-    fetchProviders(query, newPage);
+    router.push(`?keywords=${encodeURIComponent(activeQuery)}&page=${newPage}`);
+    search(activeQuery, newPage);
   };
 
   return (
@@ -207,36 +58,44 @@ export default function HomePage() {
       <Typography variant="h4" component="h1" gutterBottom>
         Voice123 Search
       </Typography>
-
-      <TextField
-        placeholder="Search..."
-        label="Search"
-        variant="outlined"
-        fullWidth
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+      
+      <SearchBar
+        query={query}
+        onQueryChange={setQuery}
+        onSearch={handleSearch}
         onKeyDown={handleKeyDown}
-        sx={{ mb: 2 }}
       />
 
-      <Button
-        variant="contained"
-        onClick={handleSearch}
-        sx={{ mb: 4, backgroundColor: "black" }}
-      >
-        Search
-      </Button>
-
-      {loading && <Typography>Loading...</Typography>}
-      {error && <Typography color="error">{error}</Typography>}
-
+      {loading && (
+        <Lottie animationData={microphoneAnimation} loop style={{ height: 150, marginTop: 16 }} />
+      )}
+      {error && (
+        <Lottie animationData={errorAnimation} loop style={{ height: 150, marginTop: 16 }} />
+      )}
       {providers.length > 0 ? (
         <>
-          <ResultsList providers={providers} query={query} />
-          <Paginator
-            currentPage={page}
-            onPageChange={handlePageChange}
-            totalPages={totalPages}
+          <ResultsList providers={providers} query={activeQuery} />
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            boundaryCount={1}
+            showFirstButton
+            showLastButton
+            sx={{
+              mt: 8,
+              display: "flex",
+              justifyContent: "center",
+              "& .MuiPaginationItem-root": {
+                border: "1px solid black",
+                color: "black",
+              },
+              "& .Mui-selected": {
+                backgroundColor: "black",
+                color: "white",
+                border: "1px solid black",
+              },
+            }}
           />
         </>
       ) : (
