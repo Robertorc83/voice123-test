@@ -1,101 +1,247 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, KeyboardEvent } from "react";
+import Container from "@mui/material/Container";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+
+interface Provider {
+  headline?: string; 
+  user: {
+    username: string;
+    name: string;
+    picture_medium?: string;
+  };
+  relevant_sample?: {
+    file?: string;
+  };
+}
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query) return <span>{text}</span>;
+
+  const regex = new RegExp(`(${query})`, "gi");
+  const parts = text.split(regex);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} data-testid="highlight" style={{ backgroundColor: "yellow" }}>
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+function AudioPlayer({ src }: { src: string }) {
+  return (
+    <Box sx={{ mt: 2 }}>
+      <audio data-testid="audio-player" controls style={{ width: "100%" }}>
+        <source src={src} type="audio/mpeg" />
+        {/* fallback text */}
+        Your browser does not support the audio element.
+      </audio>
+    </Box>
+  );
+}
+
+function Paginator({
+  currentPage,
+  onPageChange,
+  totalPages,
+}: {
+  currentPage: number;
+  onPageChange: (p: number) => void;
+  totalPages: number;
+}) {
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  return (
+    <Box sx={{ display: "flex", gap: 1 }}>
+      {/* Prev button */}
+      <Button
+        variant="outlined"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+      >
+        Prev
+      </Button>
+
+      {/* Page number buttons */}
+      {pages.map((pageNum) => (
+        <Button
+          key={pageNum}
+          variant={pageNum === currentPage ? "contained" : "outlined"}
+          onClick={() => onPageChange(pageNum)}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          {pageNum}
+        </Button>
+      ))}
+
+      {/* Next button */}
+      <Button
+        variant="outlined"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+      >
+        Next
+      </Button>
+    </Box>
+  );
+}
+
+function ResultsList({
+  providers,
+  query,
+}: {
+  providers: Provider[];
+  query: string;
+}) {
+  return (
+    <Box data-testid="results-list">
+      {providers.map((provider, idx) => {
+        const { user, headline, relevant_sample } = provider;
+        const textToHighlight = headline ?? "";
+        const audioFile = relevant_sample?.file ?? "";
+
+        return (
+          <Box key={`${user.username}-${idx}`} sx={{ mb: 3 }}>
+            {/* Actor Name as a link */}
+            <Typography variant="h6">
+              <a
+                href={`https://voice123.com/${user.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {user.name}
+              </a>
+            </Typography>
+
+            {/* Picture if available */}
+            {user.picture_medium && (
+              <Box
+                component="img"
+                src={user.picture_medium}
+                alt={user.name}
+                width="100px"
+              />
+            )}
+
+            {/* Highlight text */}
+            <Box>
+              <Highlight text={textToHighlight} query={query} />
+            </Box>
+
+            {/* Audio player */}
+            {audioFile && <AudioPlayer src={audioFile} />}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+export default function HomePage() {
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProviders = async (searchText: string, pageNum: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = `https://api.sandbox.voice123.com/providers/search/?service=voice_over&keywords=${encodeURIComponent(
+        searchText
+      )}&page=${pageNum}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("Error fetching data");
+      }
+      const totalPagesFromHeader = response.headers.get("x-list-total-pages");
+      setTotalPages(totalPagesFromHeader ? parseInt(totalPagesFromHeader, 10) : 1);
+
+      const data = await response.json();
+      setProviders(data.providers || []);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    setPage(1);
+    fetchProviders(query, 1);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    fetchProviders(query, newPage);
+  };
+
+  return (
+    <Container sx={{ my: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Voice123 Search
+      </Typography>
+
+      <TextField
+        placeholder="Search..."
+        label="Search"
+        variant="outlined"
+        fullWidth
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        sx={{ mb: 2 }}
+      />
+
+      <Button
+        variant="contained"
+        onClick={handleSearch}
+        sx={{ mb: 4, backgroundColor: "black" }}
+      >
+        Search
+      </Button>
+
+      {loading && <Typography>Loading...</Typography>}
+      {error && <Typography color="error">{error}</Typography>}
+
+      {providers.length > 0 ? (
+        <>
+          <ResultsList providers={providers} query={query} />
+          <Paginator
+            currentPage={page}
+            onPageChange={handlePageChange}
+            totalPages={totalPages}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </>
+      ) : (
+        !loading && !error && <Typography>No results found</Typography>
+      )}
+    </Container>
   );
 }

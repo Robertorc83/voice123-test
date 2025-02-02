@@ -9,16 +9,25 @@ global.fetch = jest.fn();
 /**
  * Helper to mock a successful fetch JSON response.
  */
-function mockFetchResponse(data: unknown) {
+function mockFetchResponse(data: unknown, totalPages = 1) {
   (global.fetch as jest.Mock).mockResolvedValueOnce({
     ok: true,
     json: async () => data,
+    headers: {
+      get: (headerName: string) => {
+        if (headerName === 'x-list-total-pages') {
+          return String(totalPages);
+        }
+        return null;
+      },
+    },
   } as Response);
 }
 
 describe('Homepage Search Functionality', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   it('should render the search input and search button on initial load', () => {
@@ -38,18 +47,12 @@ describe('Homepage Search Functionality', () => {
           user: {
             username: 'testuser',
             name: 'Test User',
-            picture_medium: 'http://example.com/test.jpg',
+            picture_medium: 'http://example.com/some.jpg',
           },
-          summary: {
-            paragraphs: [
-              'This is a sample paragraph that includes the search text somewhere.',
-            ],
+          headline: 'This is the HEADLINE that includes the search text.',
+          relevant_sample: {
+            file: 'http://example.com/testAudio.mp3',
           },
-          demos: [
-            {
-              mp3_file_path: 'http://example.com/sample.mp3',
-            },
-          ],
         },
       ],
     });
@@ -64,136 +67,76 @@ describe('Homepage Search Functionality', () => {
 
     expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('keywords=search%20text'));
 
-    const actorNameLink = await screen.findByRole('link', { name: /Test User/i });
-    expect(actorNameLink).toBeInTheDocument();
-  });
+    const actorLink = await screen.findByRole('link', { name: /Test User/i });
+    expect(actorLink).toBeInTheDocument();
 
-  it('should also trigger the same search when pressing Enter in the search input', async () => {
-    mockFetchResponse({
-      providers: [
-        {
-          user: {
-            username: 'anotherTestUser',
-            name: 'Enter Key User',
-            picture_medium: 'http://example.com/test-enter.jpg',
-          },
-          summary: {
-            paragraphs: [
-              'This paragraph includes the search text triggered by Enter key press.',
-            ],
-          },
-          demos: [],
-        },
-      ],
-    });
-
-    render(<HomePage />);
-
-    const input = screen.getByPlaceholderText(/search.../i);
-
-    fireEvent.change(input, { target: { value: 'search text' } });
-    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', charCode: 13 });
-
-    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('keywords=search%20text'));
-    const actorNameLink = await screen.findByRole('link', { name: /Enter Key User/i });
-    expect(actorNameLink).toBeInTheDocument();
-  });
-
-  it('should highlight the matching text in the first paragraph', async () => {
-    mockFetchResponse({
-      providers: [
-        {
-          user: {
-            username: 'testuser2',
-            name: 'Test User2',
-            picture_medium: 'http://example.com/test2.jpg',
-          },
-          summary: {
-            paragraphs: [
-              'Another paragraph with the important search text to highlight.',
-            ],
-          },
-          demos: [
-            {
-              mp3_file_path: 'http://example.com/sample2.mp3',
-            },
-          ],
-        },
-      ],
-    });
-
-    render(<HomePage />);
-    
-    const input = screen.getByPlaceholderText(/search.../i);
-    const button = screen.getByRole('button', { name: /search/i });
-
-    fireEvent.change(input, { target: { value: 'search text' } });
-    fireEvent.click(button);
-
-    const highlightedText = await screen.findByText(/search text/i);
-    expect(highlightedText).toBeInTheDocument();
-  });
-
-  it('should display an audio player for the relevant sample', async () => {
-    mockFetchResponse({
-      providers: [
-        {
-          user: {
-            username: 'audioUser',
-            name: 'Audio Test User',
-            picture_medium: 'http://example.com/audio.jpg',
-          },
-          summary: {
-            paragraphs: ['Some paragraph with search text.'],
-          },
-          demos: [
-            {
-              mp3_file_path: 'http://example.com/audioSample.mp3',
-            },
-          ],
-        },
-      ],
-    });
-
-    render(<HomePage />);
-    
-    const input = screen.getByPlaceholderText(/search.../i);
-    const button = screen.getByRole('button', { name: /search/i });
-
-    fireEvent.change(input, { target: { value: 'search text' } });
-    fireEvent.click(button);
+    const highlighted = await screen.findByText(/search text/i);
+    expect(highlighted).toBeInTheDocument();
 
     const audioPlayer = await screen.findByTestId('audio-player');
-    expect(audioPlayer).toBeInTheDocument();
-    expect(audioPlayer).toHaveAttribute('src', 'http://example.com/audioSample.mp3');
+    const sourceEl = audioPlayer.querySelector('source'); 
+
+    expect(sourceEl).toHaveAttribute('src', 'http://example.com/testAudio.mp3');
   });
 
-  it('should handle pagination by clicking "Next"', async () => {
+  it('performs search on Enter key press', async () => {
     mockFetchResponse({
       providers: [
-        // Some providers for page 1 ...
+        {
+          user: { username: 'enterUser', name: 'Enter Key User' },
+          headline: 'Headline with search text triggered by ENTER press',
+        },
       ],
-      next_page: 2,
     });
 
     render(<HomePage />);
-    
+    const input = screen.getByPlaceholderText(/search.../i);
+
+    fireEvent.change(input, { target: { value: 'search text' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('keywords=search%20text')
+    );
+
+    const userLink = await screen.findByRole('link', { name: /Enter Key User/i });
+    expect(userLink).toBeInTheDocument();
+  });
+
+  it('handles pagination when "Next" is clicked', async () => {
+    mockFetchResponse(
+      {
+        providers: [
+          {
+            user: { username: 'page1User', name: 'Page 1 User' },
+            headline: 'Some provider name or something from page 1',
+          },
+        ],
+      },
+      2
+    );
+
+    render(<HomePage />);
     const input = screen.getByPlaceholderText(/search.../i);
     const button = screen.getByRole('button', { name: /search/i });
-    
+
     fireEvent.change(input, { target: { value: 'search text' } });
     fireEvent.click(button);
 
     await screen.findByText(/Some provider name or something from page 1/i);
 
-    mockFetchResponse({
-      providers: [
-        // Some providers from page 2 ...
-      ],
-      page: 2,
-      next_page: null,
-      previous_page: 1,
-    });
+
+    mockFetchResponse(
+      {
+        providers: [
+          {
+            user: { username: 'page2User', name: 'Page 2 User' },
+            headline: 'Some provider name from page 2',
+          },
+        ],
+      },
+      2
+    );
 
     const nextButton = screen.getByRole('button', { name: /next/i });
     fireEvent.click(nextButton);
@@ -203,11 +146,9 @@ describe('Homepage Search Functionality', () => {
     await screen.findByText(/Some provider name from page 2/i);
   });
 
-  it('should show "No results found" if providers array is empty', async () => {
-    mockFetchResponse({
-      providers: [],
-    });
 
+  it('shows "No results found" (simplified with findByText)', async () => {
+    mockFetchResponse({ providers: [] });
     render(<HomePage />);
 
     const input = screen.getByPlaceholderText(/search.../i);
@@ -216,7 +157,7 @@ describe('Homepage Search Functionality', () => {
     fireEvent.change(input, { target: { value: 'search text' } });
     fireEvent.click(button);
 
-    const noResultsMessage = await screen.findByText(/No results found/i);
-    expect(noResultsMessage).toBeInTheDocument();
+    const msg = await screen.findByText(/No results found/i);
+    expect(msg).toBeInTheDocument();
   });
 });
