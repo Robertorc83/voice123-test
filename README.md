@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voice123 Test
 
-## Getting Started
+The app implements a text search functionality using the Voice123 API. It features:
 
-First, run the development server:
+- A search input and button that trigger a query when the Enter key is pressed or the Search button is clicked.
+- URL query parameters for bookmarking and sharing search results.
+- Lottie animations for loading and error states.
+- A results list displaying voice actor details, including highlighted matching text, profile pictures, and an audio player.
+- A pagination component using MUI's Pagination (with custom styling).
+- In this prototype, a fixed audio sample URL was used because most audio samples are protected by authentication
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Application Setup Guide
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Clone the Repository:**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   git clone https://github.com/yourusername/voice123-test.git
+   cd voice123-test
+   ```
 
-## Learn More
+2. **Install Dependencies:**
 
-To learn more about Next.js, take a look at the following resources:
+   Using PNPM:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   pnpm install
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Run the Development Server:**
 
-## Deploy on Vercel
+   ```bash
+   pnpm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   The app will be available at [http://localhost:3000](http://localhost:3000).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Run the Test Suite:**
+
+   ```bash
+   pnpm run test
+   ```
+
+---
+
+## Worklog
+
+- **Total Hours Spent:** Approximately 3 hours and some minutes.
+
+- **Tasks Completed:**
+  - **Search Functionality:** Implemented a search input and button that triggers a query using both click and Enter key events.
+  - **URL Query Parameters:** Added logic to read and update query parameters from the URL so that search results can be bookmarked and shared.
+  - **Animations:** Integrated animations for loading and error states.
+  - **Results List:** Built a responsive results list showing voice actor details, with text highlighting for search terms, profile images, and an audio player.
+  - **Pagination:** Integrated MUI’s built-in Pagination component with custom styling (black borders, black text, white background for the selected page).
+  - **TDD & Testing:** Wrote tests using React Testing Library and Jest from the beginning. Mocks were set up for global fetch, Next.js navigation hooks, and Lottie to ensure tests run in a jsdom environment.
+
+---
+
+## Future Improvements and Recommendations
+
+- **Enhanced Audio Player Integration:**  
+  Consider integrating a dedicated audio player library (e.g. `react-h5-audio-player`) that supports advanced features such as customizable controls, better streaming support, and improved performance. This is particularly important for a voice app where high-quality playback and responsive controls are crucial—especially when samples are protected by authentication.
+
+- **Global Error Handling:**  
+  Implement an Error Boundary component to catch and gracefully handle errors throughout the UI. This can be extended with error logging services like Sentry to provide real-time error tracking and to ensure safe deployments. A scalable error-handling solution would help maintain a consistent user experience even when unexpected issues occur.
+
+- **Caching and Data Fetching Enhancements:**  
+  Use a library such as React Query (or SWR) to manage server state and caching. This will reduce redundant API calls, improve performance, and ensure that search results remain consistent. Leveraging Next.js’s built-in caching features can further optimize data fetching.
+
+- **CI/CD Integration:**  
+  Set up continuous integration and deployment pipelines (using GitHub Actions, CircleCI, or Vercel’s built‑in CI/CD) to automatically run your tests, lint your code, and deploy only when all checks pass. This ensures that every commit is validated, reducing the risk of deploying broken code.
+
+- **Favorites Functionality:**  
+  Add the ability for users to mark their favorite voice providers. This could be implemented using a backend service or client-side storage (such as localStorage or cookies) to save and display favorite providers, enhancing the personalization of the app.
+
